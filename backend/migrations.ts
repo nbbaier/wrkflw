@@ -90,44 +90,72 @@ export async function migrateWorkflowRunsTable(
 	});
 	const rowCount = countResult.rows[0][0] as number;
 
+	// If old table is empty, no migration needed
+	if (rowCount === 0) {
+		return {
+			migrated: false,
+			rowCount: 0,
+			message:
+				"No migration needed - old table 'workflow_runs' exists but is empty",
+		};
+	}
+
+	// Check if new table already has data
+	const newTableCountResult = await sqlite.execute({
+		sql: "SELECT COUNT(*) as count FROM wrkflw_workflow_runs",
+		args: [],
+	});
+	const newTableRowCount = newTableCountResult.rows[0][0] as number;
+
 	// Copy data from old table to new table
-	if (rowCount > 0) {
-		await sqlite.execute(`
-      INSERT OR IGNORE INTO wrkflw_workflow_runs (
-        run_id, workflow_id, status, execution_path,
-        step_results, state, input_data, result, error,
-        created_at, updated_at
-      )
-      SELECT
-        run_id, workflow_id, status, execution_path,
-        step_results, state, input_data, result, error,
-        created_at, updated_at
-      FROM workflow_runs
-    `);
+	const _insertResult = await sqlite.execute(`
+    INSERT OR IGNORE INTO wrkflw_workflow_runs (
+      run_id, workflow_id, status, execution_path,
+      step_results, state, input_data, result, error,
+      created_at, updated_at
+    )
+    SELECT
+      run_id, workflow_id, status, execution_path,
+      step_results, state, input_data, result, error,
+      created_at, updated_at
+    FROM workflow_runs
+  `);
+
+	// Calculate how many rows were actually inserted
+	const finalCountResult = await sqlite.execute({
+		sql: "SELECT COUNT(*) as count FROM wrkflw_workflow_runs",
+		args: [],
+	});
+	const finalRowCount = finalCountResult.rows[0][0] as number;
+	const rowsInserted = finalRowCount - newTableRowCount;
+	const rowsSkipped = rowCount - rowsInserted;
+
+	// Build informative message
+	let message = "";
+	if (rowsSkipped > 0) {
+		message = `Migration completed with conflicts: inserted ${rowsInserted} new rows, skipped ${rowsSkipped} duplicate rows (conflicts detected - new table already had ${newTableRowCount} rows)`;
+	} else {
+		message = `Successfully migrated ${rowsInserted} rows from 'workflow_runs' to 'wrkflw_workflow_runs'`;
 	}
 
 	// Optionally drop old table
 	if (dropOldTable) {
 		await sqlite.execute("DROP TABLE workflow_runs");
 		// Also drop old indexes if they exist
-		await sqlite.execute(
-			"DROP INDEX IF EXISTS idx_workflow_runs_workflow_id",
-		);
+		await sqlite.execute("DROP INDEX IF EXISTS idx_workflow_runs_workflow_id");
 		await sqlite.execute("DROP INDEX IF EXISTS idx_workflow_runs_status");
 
 		return {
 			migrated: true,
-			rowCount,
-			message:
-				`Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs' and dropped old table`,
+			rowCount: rowsInserted,
+			message: `${message} and dropped old table`,
 		};
 	}
 
 	return {
 		migrated: true,
-		rowCount,
-		message:
-			`Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs'. Old table preserved for safety.`,
+		rowCount: rowsInserted,
+		message: `${message}. Old table preserved for safety.`,
 	};
 }
 
@@ -207,21 +235,21 @@ WHERE EXISTS (
   WHERE type='table' AND name='workflow_runs'
 );
 ${
-		dropOldTable
-			? `
+	dropOldTable
+		? `
 -- Step 4: Drop old table and indexes (CAUTION: This is irreversible!)
 DROP TABLE IF EXISTS workflow_runs;
 DROP INDEX IF EXISTS idx_workflow_runs_workflow_id;
 DROP INDEX IF EXISTS idx_workflow_runs_status;
 `
-			: `
+		: `
 -- Step 4: Old table preserved for safety
 -- To drop the old table manually, run:
 -- DROP TABLE workflow_runs;
 -- DROP INDEX IF EXISTS idx_workflow_runs_workflow_id;
 -- DROP INDEX IF EXISTS idx_workflow_runs_status;
 `
-	}
+}
 -- Migration complete!
 `.trim();
 
