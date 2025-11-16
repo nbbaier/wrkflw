@@ -156,7 +156,15 @@ export async function runMigrations(
  * Export SQL script for manual migration
  *
  * Generates SQL statements that can be run manually to migrate tables.
- * Useful for users who want to review migration steps before running them.
+ *
+ * **IMPORTANT**: This SQL script assumes the old `workflow_runs` table exists.
+ * If you're setting up a fresh installation (no existing data), you only need
+ * to create the new table - the data migration step can be skipped.
+ *
+ * Before running this script, verify the old table exists:
+ * ```sql
+ * SELECT name FROM sqlite_master WHERE type='table' AND name='workflow_runs';
+ * ```
  *
  * @param dropOldTable - Whether to include DROP TABLE statements
  * @returns SQL migration script as a string
@@ -165,6 +173,13 @@ export function generateMigrationSQL(dropOldTable = false): string {
 	const sql = `
 -- Migration Script: Normalize table naming to wrkflw_ prefix
 -- Generated: ${new Date().toISOString()}
+--
+-- IMPORTANT: This script is designed for migrating FROM an existing workflow_runs table.
+-- If you're setting up a fresh installation without existing data, you can skip
+-- the data migration step (Step 3) as it will have no data to copy.
+--
+-- Before running this script, you can verify if the old table exists:
+-- SELECT name FROM sqlite_master WHERE type='table' AND name='workflow_runs';
 
 -- Step 1: Create new table with wrkflw_ prefix
 CREATE TABLE IF NOT EXISTS wrkflw_workflow_runs (
@@ -188,7 +203,10 @@ ON wrkflw_workflow_runs(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_status
 ON wrkflw_workflow_runs(status);
 
--- Step 3: Copy data from old table to new table (if old table exists)
+-- Step 3: Copy data from old table to new table
+-- NOTE: This step will fail if the 'workflow_runs' table doesn't exist.
+-- If you don't have an existing workflow_runs table, this is expected and you can
+-- ignore this step - there's no data to migrate.
 INSERT OR IGNORE INTO wrkflw_workflow_runs (
   run_id, workflow_id, status, execution_path,
   step_results, state, input_data, result, error,
@@ -198,11 +216,7 @@ SELECT
   run_id, workflow_id, status, execution_path,
   step_results, state, input_data, result, error,
   created_at, updated_at
-FROM workflow_runs
-WHERE EXISTS (
-  SELECT 1 FROM sqlite_master
-  WHERE type='table' AND name='workflow_runs'
-);
+FROM workflow_runs;
 ${
 	dropOldTable
 		? `
