@@ -91,20 +91,52 @@ export async function migrateWorkflowRunsTable(
 	});
 	const rowCount = countResult.rows[0][0] as number;
 
+	// If old table is empty, no migration needed
+	if (rowCount === 0) {
+		return {
+			migrated: false,
+			rowCount: 0,
+			message:
+				"No migration needed - old table 'workflow_runs' exists but is empty",
+		};
+	}
+
+	// Check if new table already has data
+	const newTableCountResult = await sqlite.execute({
+		sql: "SELECT COUNT(*) as count FROM wrkflw_workflow_runs",
+		args: [],
+	});
+	const newTableRowCount = newTableCountResult.rows[0][0] as number;
+
 	// Copy data from old table to new table
-	if (rowCount > 0) {
-		await sqlite.execute(`
-      INSERT OR IGNORE INTO wrkflw_workflow_runs (
-        run_id, workflow_id, status, execution_path,
-        step_results, state, input_data, result, error,
-        created_at, updated_at
-      )
-      SELECT
-        run_id, workflow_id, status, execution_path,
-        step_results, state, input_data, result, error,
-        created_at, updated_at
-      FROM workflow_runs
-    `);
+	const _insertResult = await sqlite.execute(`
+    INSERT OR IGNORE INTO wrkflw_workflow_runs (
+      run_id, workflow_id, status, execution_path,
+      step_results, state, input_data, result, error,
+      created_at, updated_at
+    )
+    SELECT
+      run_id, workflow_id, status, execution_path,
+      step_results, state, input_data, result, error,
+      created_at, updated_at
+    FROM workflow_runs
+  `);
+
+	// Calculate how many rows were actually inserted
+	const finalCountResult = await sqlite.execute({
+		sql: "SELECT COUNT(*) as count FROM wrkflw_workflow_runs",
+		args: [],
+	});
+	const finalRowCount = finalCountResult.rows[0][0] as number;
+	const rowsInserted = finalRowCount - newTableRowCount;
+	const rowsSkipped = rowCount - rowsInserted;
+
+	// Build informative message
+	let message = "";
+	if (rowsSkipped > 0) {
+		message = `Migration completed with conflicts: inserted ${rowsInserted} new rows, skipped ${rowsSkipped} duplicate rows (conflicts detected - new table already had ${newTableRowCount} rows)`;
+	} else {
+		message = `Successfully migrated ${rowsInserted} rows from 'workflow_runs' to 'wrkflw_workflow_runs'`;
 	}
 
 	// Optionally drop old table
