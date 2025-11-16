@@ -40,12 +40,12 @@ If you want more control over the migration process:
 import { runMigrations, migrateWorkflowRunsTable } from "./backend/migrations.ts";
 
 // Migrate with old table preserved (recommended)
-const result = await migrateWorkflowRunsTable(false);
-console.log(result.message);
-console.log(`Migrated ${result.rowCount} rows`);
+const result1 = await migrateWorkflowRunsTable(false);
+console.log(result1.message);
+console.log(`Migrated ${result1.rowCount} rows`);
 
 // Migrate and drop old table (use with caution)
-const result = await migrateWorkflowRunsTable(true);
+const result2 = await migrateWorkflowRunsTable(true);
 ```
 
 ### Option 2: Using SQL Directly
