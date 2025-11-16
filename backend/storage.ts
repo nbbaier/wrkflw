@@ -1,4 +1,5 @@
 import type { WorkflowSnapshot } from "./types.ts";
+import { runMigrations } from "./migrations.ts";
 
 /**
  * SQLite-backed storage for workflow state
@@ -17,8 +18,11 @@ export class WorkflowStorage {
 		// Note: In Val Town, import sqlite dynamically to avoid errors outside Val Town
 		const { sqlite } = await import("https://esm.town/v/std/sqlite");
 
+		// Run migrations to ensure tables are up to date
+		await runMigrations({ dropOldTables: false });
+
 		await sqlite.execute(`
-      CREATE TABLE IF NOT EXISTS workflow_runs (
+      CREATE TABLE IF NOT EXISTS wrkflw_workflow_runs (
         run_id TEXT PRIMARY KEY,
         workflow_id TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -35,14 +39,14 @@ export class WorkflowStorage {
 
 		// Create index for querying by workflow_id
 		await sqlite.execute(`
-      CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_id 
-      ON workflow_runs(workflow_id)
+      CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_workflow_id
+      ON wrkflw_workflow_runs(workflow_id)
     `);
 
 		// Create index for querying by status
 		await sqlite.execute(`
-      CREATE INDEX IF NOT EXISTS idx_workflow_runs_status 
-      ON workflow_runs(status)
+      CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_status
+      ON wrkflw_workflow_runs(status)
     `);
 
 		this.initialized = true;
@@ -56,8 +60,8 @@ export class WorkflowStorage {
 
 		await sqlite.execute({
 			sql: `
-        INSERT INTO workflow_runs (
-          run_id, workflow_id, status, execution_path, 
+        INSERT INTO wrkflw_workflow_runs (
+          run_id, workflow_id, status, execution_path,
           step_results, state, input_data, result, error, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
         ON CONFLICT(run_id) DO UPDATE SET
@@ -91,10 +95,10 @@ export class WorkflowStorage {
 
 		const result = await sqlite.execute({
 			sql: `
-        SELECT 
+        SELECT
           run_id, workflow_id, status, execution_path,
           step_results, state, input_data, result, error, updated_at
-        FROM workflow_runs
+        FROM wrkflw_workflow_runs
         WHERE run_id = ?
       `,
 			args: [runId],
@@ -129,20 +133,20 @@ export class WorkflowStorage {
 		const result = workflowId
 			? await sqlite.execute({
 					sql: `
-            SELECT 
+            SELECT
               run_id, workflow_id, status, execution_path,
               step_results, state, input_data, result, error, updated_at
-            FROM workflow_runs
+            FROM wrkflw_workflow_runs
             WHERE workflow_id = ?
             ORDER BY updated_at DESC
           `,
 					args: [workflowId],
 				})
 			: await sqlite.execute(`
-          SELECT 
+          SELECT
             run_id, workflow_id, status, execution_path,
             step_results, state, input_data, result, error, updated_at
-          FROM workflow_runs
+          FROM wrkflw_workflow_runs
           ORDER BY updated_at DESC
         `);
 
@@ -167,7 +171,7 @@ export class WorkflowStorage {
 		const { sqlite } = await import("https://esm.town/v/std/sqlite");
 
 		await sqlite.execute({
-			sql: `DELETE FROM workflow_runs WHERE run_id = ?`,
+			sql: `DELETE FROM wrkflw_workflow_runs WHERE run_id = ?`,
 			args: [runId],
 		});
 	}
@@ -184,10 +188,10 @@ export class WorkflowStorage {
 		const result = workflowId
 			? await sqlite.execute({
 					sql: `
-            SELECT 
+            SELECT
               run_id, workflow_id, status, execution_path,
               step_results, state, input_data, result, error, updated_at
-            FROM workflow_runs
+            FROM wrkflw_workflow_runs
             WHERE status = ? AND workflow_id = ?
             ORDER BY updated_at DESC
           `,
@@ -195,10 +199,10 @@ export class WorkflowStorage {
 				})
 			: await sqlite.execute({
 					sql: `
-            SELECT 
+            SELECT
               run_id, workflow_id, status, execution_path,
               step_results, state, input_data, result, error, updated_at
-            FROM workflow_runs
+            FROM wrkflw_workflow_runs
             WHERE status = ?
             ORDER BY updated_at DESC
           `,
