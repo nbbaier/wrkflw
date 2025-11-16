@@ -1,11 +1,12 @@
-import type { WorkflowSnapshot } from "./types.ts";
 import { runMigrations } from "./migrations.ts";
+import type { WorkflowSnapshot } from "./types.ts";
 
 /**
  * SQLite-backed storage for workflow state
  */
 export class WorkflowStorage {
 	private initialized = false;
+	private initPromise: Promise<void> | null = null;
 
 	/**
 	 * Initialize the storage (create tables)
@@ -15,13 +16,20 @@ export class WorkflowStorage {
 			return;
 		}
 
-		// Note: In Val Town, import sqlite dynamically to avoid errors outside Val Town
-		const { sqlite } = await import("https://esm.town/v/std/sqlite");
+		// If initialization is already in progress, wait for it to complete
+		if (this.initPromise) {
+			return this.initPromise;
+		}
 
-		// Run migrations to ensure tables are up to date
-		await runMigrations({ dropOldTables: false });
+		// Start initialization and store the promise
+		this.initPromise = (async () => {
+			// Note: In Val Town, import sqlite dynamically to avoid errors outside Val Town
+			const { sqlite } = await import("https://esm.town/v/std/sqlite");
 
-		await sqlite.execute(`
+			// Run migrations to ensure tables are up to date
+			await runMigrations({ dropOldTables: false });
+
+			await sqlite.execute(`
       CREATE TABLE IF NOT EXISTS wrkflw_workflow_runs (
         run_id TEXT PRIMARY KEY,
         workflow_id TEXT NOT NULL,
@@ -37,19 +45,22 @@ export class WorkflowStorage {
       )
     `);
 
-		// Create index for querying by workflow_id
-		await sqlite.execute(`
+			// Create index for querying by workflow_id
+			await sqlite.execute(`
       CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_workflow_id
       ON wrkflw_workflow_runs(workflow_id)
     `);
 
-		// Create index for querying by status
-		await sqlite.execute(`
+			// Create index for querying by status
+			await sqlite.execute(`
       CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_status
       ON wrkflw_workflow_runs(status)
     `);
 
-		this.initialized = true;
+			this.initialized = true;
+		})();
+
+		return this.initPromise;
 	}
 
 	/**
