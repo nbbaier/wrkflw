@@ -192,10 +192,10 @@ interface WorkflowSnapshot {
 
 class WorkflowStorage {
   constructor(private sqlite: typeof import('@std/sqlite'));
-  
+
   async init(): Promise<void> {
     await this.sqlite.execute(`
-      CREATE TABLE IF NOT EXISTS workflow_runs (
+      CREATE TABLE IF NOT EXISTS wrkflw_workflow_runs (
         run_id TEXT PRIMARY KEY,
         workflow_id TEXT NOT NULL,
         status TEXT NOT NULL,

@@ -9,6 +9,12 @@ export { WorkflowRun } from "./run.ts";
 // Core exports
 export { createStep } from "./step.ts";
 export { WorkflowStorage } from "./storage.ts";
+// Migration exports
+export {
+	generateMigrationSQL,
+	migrateWorkflowRunsTable,
+	runMigrations,
+} from "./migrations.ts";
 // Type exports
 export type {
 	ExecuteFunction,
