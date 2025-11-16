@@ -22,27 +22,28 @@ export async function migrateWorkflowRunsTable(
 ): Promise<{ migrated: boolean; rowCount: number; message: string }> {
 	const { sqlite } = await import("https://esm.town/v/std/sqlite");
 
-	// Check if old table exists
+	// Check both tables in a single query for efficiency
 	const tableCheck = await sqlite.execute({
 		sql: `
       SELECT name FROM sqlite_master
-      WHERE type='table' AND name='workflow_runs'
+      WHERE type='table' AND name IN ('workflow_runs', 'wrkflw_workflow_runs')
     `,
 		args: [],
 	});
 
-	const oldTableExists = tableCheck.rows.length > 0;
+	const existingTables = tableCheck.rows.map((row) => row[0] as string);
+	const oldTableExists = existingTables.includes("workflow_runs");
+	const newTableExists = existingTables.includes("wrkflw_workflow_runs");
 
-	// Check if new table exists
-	const newTableCheck = await sqlite.execute({
-		sql: `
-      SELECT name FROM sqlite_master
-      WHERE type='table' AND name='wrkflw_workflow_runs'
-    `,
-		args: [],
-	});
-
-	const newTableExists = newTableCheck.rows.length > 0;
+	// If new table exists and old table doesn't, migration already completed
+	if (newTableExists && !oldTableExists) {
+		return {
+			migrated: false,
+			rowCount: 0,
+			message:
+				"Migration already completed - using 'wrkflw_workflow_runs' table",
+		};
+	}
 
 	// If old table doesn't exist, nothing to migrate
 	if (!oldTableExists) {
@@ -110,24 +111,20 @@ export async function migrateWorkflowRunsTable(
 	if (dropOldTable) {
 		await sqlite.execute("DROP TABLE workflow_runs");
 		// Also drop old indexes if they exist
-		await sqlite.execute(
-			"DROP INDEX IF EXISTS idx_workflow_runs_workflow_id",
-		);
+		await sqlite.execute("DROP INDEX IF EXISTS idx_workflow_runs_workflow_id");
 		await sqlite.execute("DROP INDEX IF EXISTS idx_workflow_runs_status");
 
 		return {
 			migrated: true,
 			rowCount,
-			message:
-				`Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs' and dropped old table`,
+			message: `Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs' and dropped old table`,
 		};
 	}
 
 	return {
 		migrated: true,
 		rowCount,
-		message:
-			`Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs'. Old table preserved for safety.`,
+		message: `Successfully migrated ${rowCount} rows from 'workflow_runs' to 'wrkflw_workflow_runs'. Old table preserved for safety.`,
 	};
 }
 
@@ -207,21 +204,21 @@ WHERE EXISTS (
   WHERE type='table' AND name='workflow_runs'
 );
 ${
-		dropOldTable
-			? `
+	dropOldTable
+		? `
 -- Step 4: Drop old table and indexes (CAUTION: This is irreversible!)
 DROP TABLE IF EXISTS workflow_runs;
 DROP INDEX IF EXISTS idx_workflow_runs_workflow_id;
 DROP INDEX IF EXISTS idx_workflow_runs_status;
 `
-			: `
+		: `
 -- Step 4: Old table preserved for safety
 -- To drop the old table manually, run:
 -- DROP TABLE workflow_runs;
 -- DROP INDEX IF EXISTS idx_workflow_runs_workflow_id;
 -- DROP INDEX IF EXISTS idx_workflow_runs_status;
 `
-	}
+}
 -- Migration complete!
 `.trim();
 
