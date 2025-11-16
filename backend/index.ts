@@ -28,3 +28,15 @@ export type {
 	WorkflowSnapshot,
 } from "./types.ts";
 export { createWorkflow, Workflow, WorkflowBuilder } from "./workflow.ts";
+
+// Prebuilt steps
+export {
+	delay,
+	filterArray,
+	httpGet,
+	httpPost,
+	logger,
+	mapArray,
+	pickFields,
+	template,
+} from "./prebuilt-steps.ts";

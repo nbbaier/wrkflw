@@ -62,6 +62,161 @@ const result = await run.start({
 console.log(result); // { sent: true }
 ```
 
+## Prebuilt Steps
+
+wrkflw includes a collection of ready-to-use steps for common tasks:
+
+### HTTP/API Steps
+
+**`httpGet`** - Make GET requests to APIs
+```typescript
+import { httpGet, createWorkflow } from "./backend/index.ts";
+
+const workflow = createWorkflow({
+  id: 'fetch-api-data',
+  inputSchema: z.object({
+    url: z.string().url(),
+    headers: z.record(z.string()).optional(),
+    queryParams: z.record(z.string()).optional(),
+  }),
+  outputSchema: z.object({
+    status: z.number(),
+    data: z.unknown(),
+    headers: z.record(z.string()),
+  }),
+})
+  .then(httpGet)
+  .commit();
+```
+
+**`httpPost`** - POST JSON data to APIs
+```typescript
+import { httpPost } from "./backend/index.ts";
+
+// Use in workflow with inputData: { url, body, headers? }
+```
+
+### String/Template Steps
+
+**`template`** - String interpolation with variables
+```typescript
+import { template } from "./backend/index.ts";
+
+const workflow = createWorkflow({
+  inputSchema: z.object({
+    template: z.string(),
+    variables: z.record(z.union([z.string(), z.number(), z.boolean()])),
+  }),
+  outputSchema: z.object({ result: z.string() }),
+})
+  .then(template)
+  .commit();
+
+// Input: { template: "Hello {{name}}!", variables: { name: "Alice" } }
+// Output: { result: "Hello Alice!" }
+```
+
+### Data Transformation Steps
+
+**`filterArray`** - Filter array items by condition
+```typescript
+import { filterArray } from "./backend/index.ts";
+
+// Input: {
+//   array: [1, 2, 3, 4, 5],
+//   filterFn: "(n) => n % 2 === 0"
+// }
+// Output: {
+//   filtered: [2, 4],
+//   originalCount: 5,
+//   filteredCount: 2
+// }
+```
+
+**`mapArray`** - Transform array items
+```typescript
+import { mapArray } from "./backend/index.ts";
+
+// Input: {
+//   array: [1, 2, 3],
+//   mapFn: "(n) => n * 2"
+// }
+// Output: { mapped: [2, 4, 6], count: 3 }
+```
+
+**`pickFields`** - Extract specific fields from objects
+```typescript
+import { pickFields } from "./backend/index.ts";
+
+// Input: {
+//   object: { id: 1, name: "Alice", secret: "xyz" },
+//   fields: ["id", "name"]
+// }
+// Output: { result: { id: 1, name: "Alice" } }
+```
+
+### Utility Steps
+
+**`delay`** - Wait for a specified duration
+```typescript
+import { delay } from "./backend/index.ts";
+
+// Input: { durationMs: 2000 }
+// Waits 2 seconds, then outputs: { durationMs: 2000, completedAt: "..." }
+```
+
+**`logger`** - Structured logging at different levels
+```typescript
+import { logger } from "./backend/index.ts";
+
+// Input: {
+//   level: "info",
+//   message: "Processing data",
+//   data: { count: 10 }
+// }
+// Logs to console and passes data through
+```
+
+### Complete Example with Prebuilt Steps
+
+```typescript
+import {
+  createWorkflow,
+  createStep,
+  httpGet,
+  filterArray,
+  mapArray,
+  template
+} from "./backend/index.ts";
+
+// Helper step to prepare API request
+const prepareRequest = createStep({
+  id: "prepare-request",
+  inputSchema: z.object({ userId: z.number() }),
+  outputSchema: z.object({
+    url: z.string(),
+    queryParams: z.record(z.string()).optional(),
+  }),
+  execute: async ({ inputData }) => ({
+    url: "https://api.example.com/posts",
+    queryParams: { userId: String(inputData.userId) },
+  }),
+});
+
+// Build workflow using prebuilt steps
+const workflow = createWorkflow({
+  id: 'process-user-posts',
+  inputSchema: z.object({ userId: z.number() }),
+  outputSchema: z.object({ titles: z.array(z.string()) }),
+})
+  .then(prepareRequest)  // Convert input to API request
+  .then(httpGet)         // Fetch from API (prebuilt)
+  // Add more steps as needed
+  .commit();
+```
+
+See `examples/prebuilt-steps-simple.ts` for more examples.
+
 ## Installation
 
 ### For Val Town
