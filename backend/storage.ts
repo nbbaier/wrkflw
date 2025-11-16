@@ -6,6 +6,7 @@ import type { WorkflowSnapshot } from "./types.ts";
  */
 export class WorkflowStorage {
 	private initialized = false;
+	private initPromise: Promise<void> | null = null;
 
 	/**
 	 * Initialize the storage (create tables)
@@ -15,11 +16,51 @@ export class WorkflowStorage {
 			return;
 		}
 
-		// Run migrations to ensure tables are up to date
-		// This handles both table creation and data migration from old tables
-		await runMigrations({ dropOldTables: false });
+		// If initialization is already in progress, wait for it to complete
+		if (this.initPromise) {
+			return this.initPromise;
+		}
 
-		this.initialized = true;
+		// Start initialization and store the promise
+		this.initPromise = (async () => {
+			// Note: In Val Town, import sqlite dynamically to avoid errors outside Val Town
+			const { sqlite } = await import("https://esm.town/v/std/sqlite");
+
+			// Run migrations to ensure tables are up to date
+			await runMigrations({ dropOldTables: false });
+
+			await sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS wrkflw_workflow_runs (
+        run_id TEXT PRIMARY KEY,
+        workflow_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        execution_path TEXT,
+        step_results TEXT,
+        state TEXT,
+        input_data TEXT,
+        result TEXT,
+        error TEXT,
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch())
+      )
+    `);
+
+			// Create index for querying by workflow_id
+			await sqlite.execute(`
+      CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_workflow_id
+      ON wrkflw_workflow_runs(workflow_id)
+    `);
+
+			// Create index for querying by status
+			await sqlite.execute(`
+      CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_status
+      ON wrkflw_workflow_runs(status)
+    `);
+
+			this.initialized = true;
+		})();
+
+		return this.initPromise;
 	}
 
 	/**
