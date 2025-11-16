@@ -6,7 +6,7 @@
  * directly in your environment.
  */
 
-import { generateMigrationSQL, runMigrations } from "./backend/migrations.ts";
+import { generateMigrationSQL } from "./backend/migrations.ts";
 
 console.log("=== wrkflw Table Migration Test ===\n");
 
