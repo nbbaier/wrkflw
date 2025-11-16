@@ -66,6 +66,8 @@ console.log(sql);
 
 You can then execute this SQL manually in your SQLite database.
 
+**Note**: The generated SQL script assumes you have an existing `workflow_runs` table to migrate from. If the table doesn't exist (fresh installation), the data migration step (Step 3) will fail, which is expected - you can create just the new table structure without the migration step.
+
 ### Example SQL Migration Script
 
 ```sql
@@ -92,6 +94,8 @@ CREATE INDEX IF NOT EXISTS idx_wrkflw_workflow_runs_status
 ON wrkflw_workflow_runs(status);
 
 -- Copy data from old table
+-- NOTE: This step will fail if 'workflow_runs' table doesn't exist.
+-- For fresh installations, this is expected - skip this step.
 INSERT OR IGNORE INTO wrkflw_workflow_runs (
   run_id, workflow_id, status, execution_path,
   step_results, state, input_data, result, error,
@@ -101,11 +105,7 @@ SELECT
   run_id, workflow_id, status, execution_path,
   step_results, state, input_data, result, error,
   created_at, updated_at
-FROM workflow_runs
-WHERE EXISTS (
-  SELECT 1 FROM sqlite_master
-  WHERE type='table' AND name='workflow_runs'
-);
+FROM workflow_runs;
 
 -- Optional: Drop old table (only after verifying migration succeeded)
 -- DROP TABLE workflow_runs;
