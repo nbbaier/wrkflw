@@ -11,7 +11,7 @@
  */
 
 import { Hono } from "https://esm.sh/hono@4";
-import { createStep, createWorkflow } from "../backend/workflow.ts";
+import { createStep, createWorkflow } from "../backend/index.ts";
 import { WorkflowStorage } from "../backend/storage.ts";
 import { z } from "npm:zod@^3.23";
 
@@ -43,7 +43,7 @@ const fetchData = createStep({
     console.log(`Fetching data from ${inputData.url}...`);
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
       data: [
@@ -64,7 +64,7 @@ const processData = createStep({
     console.log("Processing data...");
 
     // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
     const processed = inputData.data
       .filter((item: any) => item.score >= 90)
@@ -87,7 +87,7 @@ const saveResults = createStep({
     console.log("Saving results...");
 
     // Simulate database save
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
     return {
       saved: inputData.processed.length,
@@ -120,10 +120,14 @@ const fetchUsers = createStep({
   id: "fetch-users",
   description: "Fetch users from database",
   inputSchema: z.object({ segment: z.string() }),
-  outputSchema: z.object({ users: z.array(z.object({ id: z.string(), email: z.string(), name: z.string() })) }),
+  outputSchema: z.object({
+    users: z.array(
+      z.object({ id: z.string(), email: z.string(), name: z.string() }),
+    ),
+  }),
   execute: async ({ inputData }) => {
     console.log(`Fetching users in segment: ${inputData.segment}`);
-    await new Promise(resolve => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 700));
 
     return {
       users: [
@@ -138,13 +142,21 @@ const fetchUsers = createStep({
 const generateEmails = createStep({
   id: "generate-emails",
   description: "Generate personalized email content",
-  inputSchema: z.object({ users: z.array(z.object({ id: z.string(), email: z.string(), name: z.string() })) }),
-  outputSchema: z.object({ emails: z.array(z.object({ to: z.string(), subject: z.string(), body: z.string() })) }),
+  inputSchema: z.object({
+    users: z.array(
+      z.object({ id: z.string(), email: z.string(), name: z.string() }),
+    ),
+  }),
+  outputSchema: z.object({
+    emails: z.array(
+      z.object({ to: z.string(), subject: z.string(), body: z.string() }),
+    ),
+  }),
   execute: async ({ inputData }) => {
     console.log("Generating personalized emails...");
-    await new Promise(resolve => setTimeout(resolve, 900));
+    await new Promise((resolve) => setTimeout(resolve, 900));
 
-    const emails = inputData.users.map(user => ({
+    const emails = inputData.users.map((user) => ({
       to: user.email,
       subject: `Hello ${user.name}!`,
       body: `Hi ${user.name}, we have exciting news for you...`,
@@ -157,11 +169,15 @@ const generateEmails = createStep({
 const sendEmails = createStep({
   id: "send-emails",
   description: "Send emails via email service",
-  inputSchema: z.object({ emails: z.array(z.object({ to: z.string(), subject: z.string(), body: z.string() })) }),
+  inputSchema: z.object({
+    emails: z.array(
+      z.object({ to: z.string(), subject: z.string(), body: z.string() }),
+    ),
+  }),
   outputSchema: z.object({ sent: z.number(), failed: z.number() }),
   execute: async ({ inputData }) => {
     console.log("Sending emails...");
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
     return {
       sent: inputData.emails.length,
@@ -197,7 +213,7 @@ const collectMetrics = createStep({
   outputSchema: z.object({ metrics: z.record(z.number()) }),
   execute: async ({ inputData }) => {
     console.log(`Collecting metrics for period: ${inputData.period}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     return {
       metrics: {
@@ -213,10 +229,13 @@ const analyzeMetrics = createStep({
   id: "analyze-metrics",
   description: "Analyze metrics and generate insights",
   inputSchema: z.object({ metrics: z.record(z.number()) }),
-  outputSchema: z.object({ insights: z.array(z.string()), trends: z.record(z.string()) }),
+  outputSchema: z.object({
+    insights: z.array(z.string()),
+    trends: z.record(z.string()),
+  }),
   execute: async ({ inputData }) => {
     console.log("Analyzing metrics...");
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
     // Randomly fail sometimes to demonstrate error handling
     if (Math.random() < 0.3) {
@@ -241,11 +260,14 @@ const analyzeMetrics = createStep({
 const generateReport = createStep({
   id: "generate-report",
   description: "Generate PDF report",
-  inputSchema: z.object({ insights: z.array(z.string()), trends: z.record(z.string()) }),
+  inputSchema: z.object({
+    insights: z.array(z.string()),
+    trends: z.record(z.string()),
+  }),
   outputSchema: z.object({ reportUrl: z.string(), pages: z.number() }),
   execute: async ({ inputData }) => {
     console.log("Generating report...");
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return {
       reportUrl: `https://reports.example.com/report-${Date.now()}.pdf`,
@@ -276,7 +298,9 @@ workflows.set(reportWorkflow.id, {
 
 // GET /api/workflows - List all workflows
 app.get("/api/workflows", (c) => {
-  const workflowList = Array.from(workflows.entries()).map(([id, { workflow, exampleInput }]) => ({
+  const workflowList = Array.from(workflows.entries()).map((
+    [id, { workflow, exampleInput }],
+  ) => ({
     id: workflow.id,
     description: workflow.config.description,
     steps: workflow.stepFlow.map((entry: any) => ({
