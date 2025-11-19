@@ -3,6 +3,11 @@ import { ExecutionEngine } from "./engine.ts";
 import { WorkflowRun } from "./run.ts";
 import { WorkflowStorage } from "./storage.ts";
 import type { Step, StepFlowEntry, WorkflowConfig } from "./types.ts";
+import {
+	type VisualizationFormat,
+	type VisualizationOptions,
+	visualizeWorkflow,
+} from "./visualize.ts";
 
 /**
  * Workflow builder with fluent API and type inference
@@ -121,6 +126,26 @@ export class Workflow<
 	 */
 	get stateSchema(): z.ZodSchema<TState> | undefined {
 		return this.config.stateSchema;
+	}
+
+	/**
+	 * Generate a visual representation of this workflow
+	 *
+	 * @param format - The visualization format (default: "mermaid")
+	 * @param options - Visualization options
+	 * @returns Visualization string in the specified format
+	 *
+	 * @example
+	 * ```typescript
+	 * const diagram = workflow.visualize("mermaid");
+	 * console.log(diagram);
+	 * ```
+	 */
+	visualize(
+		format: VisualizationFormat = "mermaid",
+		options: VisualizationOptions = {},
+	): string {
+		return visualizeWorkflow(this, format, options);
 	}
 }
 

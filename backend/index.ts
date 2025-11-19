@@ -40,3 +40,12 @@ export {
 	pickFields,
 	template,
 } from "./prebuilt-steps.ts";
+
+// Visualization exports
+export {
+	visualizeExecution,
+	visualizeWorkflow,
+	type ExecutionVisualizationOptions,
+	type VisualizationFormat,
+	type VisualizationOptions,
+} from "./visualize.ts";

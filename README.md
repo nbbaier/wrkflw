@@ -12,6 +12,7 @@ Build strongly-typed, composable workflows that run on Val Town's serverless pla
 - **Durable State**: SQLite-backed persistence with ACID guarantees
 - **Runtime Validation**: Zod schema validation for inputs and outputs
 - **Error Handling**: Structured error tracking and recovery
+- **Visual Workflows**: Generate Mermaid diagrams of workflow structure and execution state
 
 ## Quick Start
 
@@ -484,6 +485,131 @@ const workflowRuns = await storage.listRuns('my-workflow-id');
 const failedRuns = await storage.getRunsByStatus('failed');
 ```
 
+## Workflow Visualization
+
+wrkflw includes built-in visualization capabilities to help you understand and debug your workflows. You can generate visual diagrams in multiple formats (currently Mermaid, with more formats planned).
+
+### Visualize Workflow Structure
+
+Generate a diagram showing the static structure of your workflow:
+
+```typescript
+const workflow = createWorkflow({
+  id: 'data-processing',
+  inputSchema: z.object({ url: z.string() }),
+  outputSchema: z.object({ saved: z.boolean() }),
+})
+  .then(fetchData)
+  .then(processData)
+  .then(saveResults)
+  .commit();
+
+// Generate Mermaid diagram
+const diagram = workflow.visualize("mermaid");
+console.log(diagram);
+```
+
+Output:
+```mermaid
+graph TD
+  Start([data-processing])
+  fetch_data[fetch-data<br/><small>Fetch data from API</small>]
+  Start --> fetch_data
+  process_data[process-data<br/><small>Process and transform data</small>]
+  fetch_data --> process_data
+  save_results[save-results<br/><small>Save to database</small>]
+  process_data --> save_results
+  End([End])
+  save_results --> End
+```
+
+### Visualize Execution State
+
+Generate a diagram showing the current state of a workflow run:
+
+```typescript
+const run = await workflow.createRun();
+await run.start({ inputData: { url: "https://api.example.com/data" } });
+
+// Visualize execution state
+const executionDiagram = await run.visualize("mermaid", {
+  highlightCurrentStep: true,
+  showStatus: true,
+});
+
+console.log(executionDiagram);
+```
+
+The execution visualization includes:
+- ✓ Checkmarks for completed steps
+- ✗ X marks for failed steps
+- ● Dots for currently running steps
+- Color-coded step states (success, failed, running, pending)
+- Error messages for failed steps
+
+### Visualization Options
+
+Both workflow and execution visualizations support various options:
+
+```typescript
+// Workflow structure options
+workflow.visualize("mermaid", {
+  includeDescriptions: true,   // Show step descriptions (default: true)
+  includeSchemas: false,        // Show schema info (not yet implemented)
+});
+
+// Execution state options
+await run.visualize("mermaid", {
+  includeDescriptions: true,    // Show step descriptions (default: true)
+  highlightCurrentStep: true,   // Highlight the current/last step (default: true)
+  showStatus: true,             // Show status icons (default: true)
+  showResults: false,           // Show step results (default: false)
+});
+```
+
+### Rendering Diagrams
+
+Mermaid diagrams can be rendered in multiple ways:
+
+1. **GitHub/GitLab**: Paste into markdown files (rendered automatically)
+2. **Mermaid Live Editor**: Copy to [mermaid.live](https://mermaid.live)
+3. **VS Code**: Use the Mermaid Preview extension
+4. **Documentation sites**: Most support Mermaid natively
+
+### Using Visualization Functions Directly
+
+You can also use the visualization functions directly without calling methods on workflow/run instances:
+
+```typescript
+import { visualizeWorkflow, visualizeExecution } from "./backend/index.ts";
+
+// Visualize workflow structure
+const diagram = visualizeWorkflow(workflow, "mermaid", {
+  includeDescriptions: true,
+});
+
+// Visualize execution with snapshot
+const snapshot = await run.getSnapshot();
+if (snapshot) {
+  const executionDiagram = visualizeExecution(
+    workflow,
+    snapshot,
+    "mermaid",
+    { showStatus: true }
+  );
+}
+```
+
+### Future Visualization Formats
+
+The visualization API is designed to be extensible. Planned formats include:
+
+- **JSON**: Graph data for custom visualization libraries (D3, Cytoscape)
+- **ASCII**: Text-based diagrams for CLI/terminal output
+- **DOT**: Graphviz format for advanced layout algorithms
+
+See `examples/workflow-visualization.ts` for a complete example.
+
 ## Project Structure
 
 ```
@@ -495,11 +621,15 @@ wrkflw/
 │   ├── workflow.ts    # Workflow builder
 │   ├── engine.ts      # Execution engine
 │   ├── storage.ts     # SQLite persistence
-│   └── run.ts         # Run management
+│   ├── run.ts         # Run management
+│   ├── visualize.ts   # Workflow visualization
+│   └── prebuilt-steps.ts  # Ready-to-use steps
 ├── examples/
 │   ├── simple-workflow.ts
 │   ├── http-trigger.ts
-│   └── cron-trigger.ts
+│   ├── cron-trigger.ts
+│   ├── prebuilt-steps-simple.ts
+│   └── workflow-visualization.ts
 ├── PLAN.md            # Implementation plan
 └── README.md
 ```
