@@ -278,10 +278,10 @@ workflows.set(reportWorkflow.id, {
 app.get("/api/workflows", (c) => {
   const workflowList = Array.from(workflows.entries()).map(([id, { workflow, exampleInput }]) => ({
     id: workflow.id,
-    description: workflow.description,
-    steps: workflow.steps.map((step: any) => ({
-      id: step.id,
-      description: step.description,
+    description: workflow.config.description,
+    steps: workflow.stepFlow.map((entry: any) => ({
+      id: entry.step.id,
+      description: entry.step.description,
     })),
     exampleInput,
   }));
@@ -300,10 +300,10 @@ app.get("/api/workflows/:id", (c) => {
   const { workflow, exampleInput } = entry;
   return c.json({
     id: workflow.id,
-    description: workflow.description,
-    steps: workflow.steps.map((step: any) => ({
-      id: step.id,
-      description: step.description,
+    description: workflow.config.description,
+    steps: workflow.stepFlow.map((entry: any) => ({
+      id: entry.step.id,
+      description: entry.step.description,
     })),
     exampleInput,
   });
