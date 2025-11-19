@@ -625,22 +625,13 @@ wrkflw includes a powerful React-based canvas visualizer that provides real-time
 
 ### Quick Start
 
-**Option 1: Embedded Visualizer (Easiest)**
-```bash
-# Single server with embedded React visualizer
-deno run --allow-all examples/api-server-example-local.ts
-# Open http://localhost:8000
-```
-
-**Option 2: Full ReactFlow Canvas (Most Features)**
-
 1. **Start the API Server**:
 ```bash
 # From the root directory
-deno run --allow-all examples/api-server-example-local.ts
+deno run --allow-all examples/api-server-example.ts
 ```
 
-2. **Start the Frontend** (in a separate terminal):
+2. **Start the Frontend**:
 ```bash
 cd frontend
 npm install
