@@ -610,27 +610,128 @@ The visualization API is designed to be extensible. Planned formats include:
 
 See `examples/workflow-visualization.ts` for a complete example.
 
+## Canvas Visualizer (React App)
+
+wrkflw includes a powerful React-based canvas visualizer that provides real-time, interactive workflow visualization. Unlike the text-based Mermaid diagrams, the canvas visualizer offers a dynamic, web-based UI for monitoring and debugging workflows.
+
+### Features
+
+- **Interactive Canvas**: Pan, zoom, and navigate workflow diagrams with smooth animations
+- **Real-time Updates**: Watch workflow execution live with auto-refresh
+- **Step Details**: Click on nodes to view outputs, errors, and execution status
+- **Execution History**: Browse past workflow runs and their results
+- **Multiple Workflows**: Switch between different workflows seamlessly
+- **Status Indicators**: Visual feedback for running, success, and failed steps
+
+### Quick Start
+
+1. **Start the API Server**:
+```bash
+# From the root directory
+deno run --allow-all examples/api-server-example.ts
+```
+
+2. **Start the Frontend**:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. **Open the Visualizer**:
+Visit `http://localhost:3000` in your browser
+
+### Usage
+
+```typescript
+import { createApiServer, WorkflowStorage } from "./backend/index.ts";
+
+// Initialize storage and API server
+const storage = new WorkflowStorage();
+await storage.init();
+const apiServer = createApiServer(storage);
+
+// Register your workflows
+apiServer.registerWorkflow(dataProcessingWorkflow, {
+  url: "https://api.example.com/data"  // Example input
+});
+
+// Start the server
+await apiServer.serve(8000);
+```
+
+The canvas visualizer will automatically:
+- Display all registered workflows in the sidebar
+- Show workflow structure with connected nodes
+- Update in real-time as workflows execute
+- Highlight running steps with animations
+- Show success/failure states with color coding
+- Display step outputs and error messages
+
+### API Endpoints
+
+The API server exposes the following endpoints for the visualizer:
+
+```
+GET  /api/workflows           - List all registered workflows
+GET  /api/workflows/:id       - Get workflow details
+GET  /api/workflows/:id/runs  - List runs for a workflow
+POST /api/workflows/:id/runs  - Create and start a new run
+GET  /api/runs/:runId         - Get detailed run status
+```
+
+### Architecture
+
+```
+┌──────────────────┐     HTTP     ┌──────────────────┐
+│  React Frontend  │ ◄─────────► │  Deno API Server │
+│  (Port 3000)     │   /api/*     │  (Port 8000)     │
+└──────────────────┘              └──────────────────┘
+        │                                  │
+        │ React Flow                       │ Workflow Engine
+        │ Canvas Rendering                 │ SQLite Storage
+        ▼                                  ▼
+   Visualizer UI                     Execution State
+```
+
+See `frontend/README.md` for detailed documentation and customization options.
+
 ## Project Structure
 
 ```
 wrkflw/
 ├── backend/
-│   ├── index.ts       # Main exports
-│   ├── types.ts       # TypeScript types
-│   ├── step.ts        # Step creation
-│   ├── workflow.ts    # Workflow builder
-│   ├── engine.ts      # Execution engine
-│   ├── storage.ts     # SQLite persistence
-│   ├── run.ts         # Run management
-│   ├── visualize.ts   # Workflow visualization
-│   └── prebuilt-steps.ts  # Ready-to-use steps
+│   ├── index.ts          # Main exports
+│   ├── types.ts          # TypeScript types
+│   ├── step.ts           # Step creation
+│   ├── workflow.ts       # Workflow builder
+│   ├── engine.ts         # Execution engine
+│   ├── storage.ts        # SQLite persistence
+│   ├── run.ts            # Run management
+│   ├── visualize.ts      # Workflow visualization
+│   ├── api-server.ts     # API server for canvas visualizer
+│   └── prebuilt-steps.ts # Ready-to-use steps
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── WorkflowVisualizer.tsx  # Main canvas component
+│   │   │   ├── StepNode.tsx            # Custom step node
+│   │   │   ├── WorkflowVisualizer.css
+│   │   │   └── StepNode.css
+│   │   ├── App.tsx           # Main app component
+│   │   ├── types.ts          # Frontend types
+│   │   └── main.tsx          # Entry point
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── README.md
 ├── examples/
 │   ├── simple-workflow.ts
 │   ├── http-trigger.ts
 │   ├── cron-trigger.ts
 │   ├── prebuilt-steps-simple.ts
-│   └── workflow-visualization.ts
-├── PLAN.md            # Implementation plan
+│   ├── workflow-visualization.ts
+│   └── api-server-example.ts    # Canvas visualizer demo
+├── PLAN.md
 └── README.md
 ```
 
