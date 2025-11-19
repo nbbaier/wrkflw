@@ -107,17 +107,33 @@ frontend/
 - **Embedded views** - Lightweight visualization
 
 ### Deployment
+
+**For Val Town:**
 Simply copy the contents of `examples/api-server-example.http.ts` to a Val Town HTTP val. Everything (API + frontend) is included in a single file.
+
+**For Local Development:**
+Run the local server version for testing without deploying:
+```bash
+deno run --allow-all examples/api-server-example-local.ts
+# Open http://localhost:8000
+```
+
+This gives you the same embedded visualizer but running locally on port 8000.
 
 ### Architecture
 ```
-api-server-example.http.ts
+api-server-example.http.ts        # Val Town deployment version
+api-server-example-local.ts       # Local development version
 ├── Workflow definitions
 ├── Hono API routes
 └── Embedded HTML with:
     ├── <style> - Inline CSS
     ├── <script type="importmap"> - React imports
     └── <script type="module"> - React app code
+
+# Only difference between files:
+# .http.ts → exports app.fetch
+# -local.ts → calls Deno.serve()
 ```
 
 ---
@@ -206,13 +222,23 @@ This means you can:
 
 ## Migration Path
 
-### From Val Town → ReactFlow
+### Testing Embedded Visualizer Locally
+
+To test the Val Town-style embedded visualizer without deploying:
+```bash
+deno run --allow-all examples/api-server-example-local.ts
+# Open http://localhost:8000
+```
+
+### From Embedded → ReactFlow
 
 1. Clone the repository
 2. Install frontend dependencies: `cd frontend && npm install`
-3. Start API server: `deno run --allow-all examples/api-server-example.http.ts`
-4. Start frontend: `npm run dev`
-5. Open http://localhost:3000
+3. Start API server: `deno run --allow-all examples/api-server-example-local.ts`
+4. Start frontend: `npm run dev` (in a separate terminal)
+5. Open http://localhost:3000 for ReactFlow UI
+
+Both frontends can run simultaneously (different ports).
 
 ### From ReactFlow → Val Town
 
