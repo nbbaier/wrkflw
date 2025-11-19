@@ -49,3 +49,6 @@ export {
 	type VisualizationFormat,
 	type VisualizationOptions,
 } from "./visualize.ts";
+
+// API Server exports
+export { ApiServer, createApiServer } from "./api-server.ts";
