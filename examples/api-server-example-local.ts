@@ -16,9 +16,9 @@
  */
 
 import { Hono } from "https://esm.sh/hono@4";
-import { createStep, createWorkflow } from "../backend/workflow.ts";
-import { WorkflowStorage } from "../backend/storage.ts";
 import { z } from "npm:zod@^3.23";
+import { createStep, createWorkflow } from "../backend/index.ts";
+import { WorkflowStorage } from "../backend/storage.ts";
 
 // Initialize storage
 const storage = new WorkflowStorage();
@@ -29,7 +29,7 @@ const app = new Hono();
 
 // Unwrap Hono errors to see original error details
 app.onError((err, c) => {
-  throw err;
+	throw err;
 });
 
 // In-memory workflow registry
@@ -40,81 +40,81 @@ const workflows = new Map<string, { workflow: any; exampleInput?: any }>();
 // ============================================================================
 
 const fetchData = createStep({
-  id: "fetch-data",
-  description: "Fetch data from external API",
-  inputSchema: z.object({ url: z.string() }),
-  outputSchema: z.object({ data: z.array(z.record(z.unknown())) }),
-  execute: async ({ inputData }) => {
-    console.log(`Fetching data from ${inputData.url}...`);
+	id: "fetch-data",
+	description: "Fetch data from external API",
+	inputSchema: z.object({ url: z.string() }),
+	outputSchema: z.object({ data: z.array(z.record(z.unknown())) }),
+	execute: async ({ inputData }) => {
+		console.log(`Fetching data from ${inputData.url}...`);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+		// Simulate API call
+		await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    return {
-      data: [
-        { id: 1, name: "Alice", score: 95 },
-        { id: 2, name: "Bob", score: 87 },
-        { id: 3, name: "Charlie", score: 92 },
-      ],
-    };
-  },
+		return {
+			data: [
+				{ id: 1, name: "Alice", score: 95 },
+				{ id: 2, name: "Bob", score: 87 },
+				{ id: 3, name: "Charlie", score: 92 },
+			],
+		};
+	},
 });
 
 const processData = createStep({
-  id: "process-data",
-  description: "Transform and filter data",
-  inputSchema: z.object({ data: z.array(z.record(z.unknown())) }),
-  outputSchema: z.object({ processed: z.array(z.record(z.unknown())) }),
-  execute: async ({ inputData }) => {
-    console.log("Processing data...");
+	id: "process-data",
+	description: "Transform and filter data",
+	inputSchema: z.object({ data: z.array(z.record(z.unknown())) }),
+	outputSchema: z.object({ processed: z.array(z.record(z.unknown())) }),
+	execute: async ({ inputData }) => {
+		console.log("Processing data...");
 
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 800));
+		// Simulate processing
+		await new Promise((resolve) => setTimeout(resolve, 800));
 
-    const processed = inputData.data
-      .filter((item: any) => item.score >= 90)
-      .map((item: any) => ({
-        ...item,
-        grade: "A",
-        timestamp: Date.now(),
-      }));
+		const processed = inputData.data
+			.filter((item: any) => item.score >= 90)
+			.map((item: any) => ({
+				...item,
+				grade: "A",
+				timestamp: Date.now(),
+			}));
 
-    return { processed };
-  },
+		return { processed };
+	},
 });
 
 const saveResults = createStep({
-  id: "save-results",
-  description: "Save processed data to database",
-  inputSchema: z.object({ processed: z.array(z.record(z.unknown())) }),
-  outputSchema: z.object({ saved: z.number(), success: z.boolean() }),
-  execute: async ({ inputData }) => {
-    console.log("Saving results...");
+	id: "save-results",
+	description: "Save processed data to database",
+	inputSchema: z.object({ processed: z.array(z.record(z.unknown())) }),
+	outputSchema: z.object({ saved: z.number(), success: z.boolean() }),
+	execute: async ({ inputData }) => {
+		console.log("Saving results...");
 
-    // Simulate database save
-    await new Promise(resolve => setTimeout(resolve, 600));
+		// Simulate database save
+		await new Promise((resolve) => setTimeout(resolve, 600));
 
-    return {
-      saved: inputData.processed.length,
-      success: true,
-    };
-  },
+		return {
+			saved: inputData.processed.length,
+			success: true,
+		};
+	},
 });
 
 const dataProcessingWorkflow = createWorkflow({
-  id: "data-processing",
-  description: "Fetch, process, and save data pipeline",
-  inputSchema: z.object({ url: z.string() }),
-  outputSchema: z.object({ saved: z.number(), success: z.boolean() }),
+	id: "data-processing",
+	description: "Fetch, process, and save data pipeline",
+	inputSchema: z.object({ url: z.string() }),
+	outputSchema: z.object({ saved: z.number(), success: z.boolean() }),
 })
-  .then(fetchData)
-  .then(processData)
-  .then(saveResults)
-  .commit();
+	.then(fetchData)
+	.then(processData)
+	.then(saveResults)
+	.commit();
 
 workflows.set(dataProcessingWorkflow.id, {
-  workflow: dataProcessingWorkflow,
-  exampleInput: { url: "https://api.example.com/data" },
+	workflow: dataProcessingWorkflow,
+	exampleInput: { url: "https://api.example.com/data" },
 });
 
 // ============================================================================
@@ -122,73 +122,89 @@ workflows.set(dataProcessingWorkflow.id, {
 // ============================================================================
 
 const fetchUsers = createStep({
-  id: "fetch-users",
-  description: "Fetch users from database",
-  inputSchema: z.object({ segment: z.string() }),
-  outputSchema: z.object({ users: z.array(z.object({ id: z.string(), email: z.string(), name: z.string() })) }),
-  execute: async ({ inputData }) => {
-    console.log(`Fetching users in segment: ${inputData.segment}`);
-    await new Promise(resolve => setTimeout(resolve, 700));
+	id: "fetch-users",
+	description: "Fetch users from database",
+	inputSchema: z.object({ segment: z.string() }),
+	outputSchema: z.object({
+		users: z.array(
+			z.object({ id: z.string(), email: z.string(), name: z.string() }),
+		),
+	}),
+	execute: async ({ inputData }) => {
+		console.log(`Fetching users in segment: ${inputData.segment}`);
+		await new Promise((resolve) => setTimeout(resolve, 700));
 
-    return {
-      users: [
-        { id: "1", email: "alice@example.com", name: "Alice" },
-        { id: "2", email: "bob@example.com", name: "Bob" },
-        { id: "3", email: "charlie@example.com", name: "Charlie" },
-      ],
-    };
-  },
+		return {
+			users: [
+				{ id: "1", email: "alice@example.com", name: "Alice" },
+				{ id: "2", email: "bob@example.com", name: "Bob" },
+				{ id: "3", email: "charlie@example.com", name: "Charlie" },
+			],
+		};
+	},
 });
 
 const generateEmails = createStep({
-  id: "generate-emails",
-  description: "Generate personalized email content",
-  inputSchema: z.object({ users: z.array(z.object({ id: z.string(), email: z.string(), name: z.string() })) }),
-  outputSchema: z.object({ emails: z.array(z.object({ to: z.string(), subject: z.string(), body: z.string() })) }),
-  execute: async ({ inputData }) => {
-    console.log("Generating personalized emails...");
-    await new Promise(resolve => setTimeout(resolve, 900));
+	id: "generate-emails",
+	description: "Generate personalized email content",
+	inputSchema: z.object({
+		users: z.array(
+			z.object({ id: z.string(), email: z.string(), name: z.string() }),
+		),
+	}),
+	outputSchema: z.object({
+		emails: z.array(
+			z.object({ to: z.string(), subject: z.string(), body: z.string() }),
+		),
+	}),
+	execute: async ({ inputData }) => {
+		console.log("Generating personalized emails...");
+		await new Promise((resolve) => setTimeout(resolve, 900));
 
-    const emails = inputData.users.map(user => ({
-      to: user.email,
-      subject: `Hello ${user.name}!`,
-      body: `Hi ${user.name}, we have exciting news for you...`,
-    }));
+		const emails = inputData.users.map((user) => ({
+			to: user.email,
+			subject: `Hello ${user.name}!`,
+			body: `Hi ${user.name}, we have exciting news for you...`,
+		}));
 
-    return { emails };
-  },
+		return { emails };
+	},
 });
 
 const sendEmails = createStep({
-  id: "send-emails",
-  description: "Send emails via email service",
-  inputSchema: z.object({ emails: z.array(z.object({ to: z.string(), subject: z.string(), body: z.string() })) }),
-  outputSchema: z.object({ sent: z.number(), failed: z.number() }),
-  execute: async ({ inputData }) => {
-    console.log("Sending emails...");
-    await new Promise(resolve => setTimeout(resolve, 1200));
+	id: "send-emails",
+	description: "Send emails via email service",
+	inputSchema: z.object({
+		emails: z.array(
+			z.object({ to: z.string(), subject: z.string(), body: z.string() }),
+		),
+	}),
+	outputSchema: z.object({ sent: z.number(), failed: z.number() }),
+	execute: async ({ inputData }) => {
+		console.log("Sending emails...");
+		await new Promise((resolve) => setTimeout(resolve, 1200));
 
-    return {
-      sent: inputData.emails.length,
-      failed: 0,
-    };
-  },
+		return {
+			sent: inputData.emails.length,
+			failed: 0,
+		};
+	},
 });
 
 const emailCampaignWorkflow = createWorkflow({
-  id: "email-campaign",
-  description: "Automated email campaign workflow",
-  inputSchema: z.object({ segment: z.string() }),
-  outputSchema: z.object({ sent: z.number(), failed: z.number() }),
+	id: "email-campaign",
+	description: "Automated email campaign workflow",
+	inputSchema: z.object({ segment: z.string() }),
+	outputSchema: z.object({ sent: z.number(), failed: z.number() }),
 })
-  .then(fetchUsers)
-  .then(generateEmails)
-  .then(sendEmails)
-  .commit();
+	.then(fetchUsers)
+	.then(generateEmails)
+	.then(sendEmails)
+	.commit();
 
 workflows.set(emailCampaignWorkflow.id, {
-  workflow: emailCampaignWorkflow,
-  exampleInput: { segment: "premium-users" },
+	workflow: emailCampaignWorkflow,
+	exampleInput: { segment: "premium-users" },
 });
 
 // ============================================================================
@@ -196,83 +212,89 @@ workflows.set(emailCampaignWorkflow.id, {
 // ============================================================================
 
 const collectMetrics = createStep({
-  id: "collect-metrics",
-  description: "Collect performance metrics",
-  inputSchema: z.object({ period: z.string() }),
-  outputSchema: z.object({ metrics: z.record(z.number()) }),
-  execute: async ({ inputData }) => {
-    console.log(`Collecting metrics for period: ${inputData.period}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+	id: "collect-metrics",
+	description: "Collect performance metrics",
+	inputSchema: z.object({ period: z.string() }),
+	outputSchema: z.object({ metrics: z.record(z.number()) }),
+	execute: async ({ inputData }) => {
+		console.log(`Collecting metrics for period: ${inputData.period}`);
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
-    return {
-      metrics: {
-        users: 1250,
-        revenue: 45600,
-        conversions: 234,
-      },
-    };
-  },
+		return {
+			metrics: {
+				users: 1250,
+				revenue: 45600,
+				conversions: 234,
+			},
+		};
+	},
 });
 
 const analyzeMetrics = createStep({
-  id: "analyze-metrics",
-  description: "Analyze metrics and generate insights",
-  inputSchema: z.object({ metrics: z.record(z.number()) }),
-  outputSchema: z.object({ insights: z.array(z.string()), trends: z.record(z.string()) }),
-  execute: async ({ inputData }) => {
-    console.log("Analyzing metrics...");
-    await new Promise(resolve => setTimeout(resolve, 800));
+	id: "analyze-metrics",
+	description: "Analyze metrics and generate insights",
+	inputSchema: z.object({ metrics: z.record(z.number()) }),
+	outputSchema: z.object({
+		insights: z.array(z.string()),
+		trends: z.record(z.string()),
+	}),
+	execute: async ({ inputData }) => {
+		console.log("Analyzing metrics...");
+		await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // Randomly fail sometimes to demonstrate error handling
-    if (Math.random() < 0.3) {
-      throw new Error("Analysis service temporarily unavailable");
-    }
+		// Randomly fail sometimes to demonstrate error handling
+		if (Math.random() < 0.3) {
+			throw new Error("Analysis service temporarily unavailable");
+		}
 
-    return {
-      insights: [
-        "User growth increased by 15%",
-        "Revenue trending upward",
-        "Conversion rate improved",
-      ],
-      trends: {
-        users: "increasing",
-        revenue: "increasing",
-        conversions: "stable",
-      },
-    };
-  },
+		return {
+			insights: [
+				"User growth increased by 15%",
+				"Revenue trending upward",
+				"Conversion rate improved",
+			],
+			trends: {
+				users: "increasing",
+				revenue: "increasing",
+				conversions: "stable",
+			},
+		};
+	},
 });
 
 const generateReport = createStep({
-  id: "generate-report",
-  description: "Generate PDF report",
-  inputSchema: z.object({ insights: z.array(z.string()), trends: z.record(z.string()) }),
-  outputSchema: z.object({ reportUrl: z.string(), pages: z.number() }),
-  execute: async ({ inputData }) => {
-    console.log("Generating report...");
-    await new Promise(resolve => setTimeout(resolve, 1000));
+	id: "generate-report",
+	description: "Generate PDF report",
+	inputSchema: z.object({
+		insights: z.array(z.string()),
+		trends: z.record(z.string()),
+	}),
+	outputSchema: z.object({ reportUrl: z.string(), pages: z.number() }),
+	execute: async ({ inputData }) => {
+		console.log("Generating report...");
+		await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    return {
-      reportUrl: `https://reports.example.com/report-${Date.now()}.pdf`,
-      pages: 12,
-    };
-  },
+		return {
+			reportUrl: `https://reports.example.com/report-${Date.now()}.pdf`,
+			pages: 12,
+		};
+	},
 });
 
 const reportWorkflow = createWorkflow({
-  id: "report-generation",
-  description: "Monthly performance report generation",
-  inputSchema: z.object({ period: z.string() }),
-  outputSchema: z.object({ reportUrl: z.string(), pages: z.number() }),
+	id: "report-generation",
+	description: "Monthly performance report generation",
+	inputSchema: z.object({ period: z.string() }),
+	outputSchema: z.object({ reportUrl: z.string(), pages: z.number() }),
 })
-  .then(collectMetrics)
-  .then(analyzeMetrics)
-  .then(generateReport)
-  .commit();
+	.then(collectMetrics)
+	.then(analyzeMetrics)
+	.then(generateReport)
+	.commit();
 
 workflows.set(reportWorkflow.id, {
-  workflow: reportWorkflow,
-  exampleInput: { period: "2024-11" },
+	workflow: reportWorkflow,
+	exampleInput: { period: "2024-11" },
 });
 
 // ============================================================================
@@ -281,119 +303,124 @@ workflows.set(reportWorkflow.id, {
 
 // GET /api/workflows - List all workflows
 app.get("/api/workflows", (c) => {
-  const workflowList = Array.from(workflows.entries()).map(([id, { workflow, exampleInput }]) => ({
-    id: workflow.id,
-    description: workflow.config.description,
-    steps: workflow.stepFlow.map((entry: any) => ({
-      id: entry.step.id,
-      description: entry.step.description,
-    })),
-    exampleInput,
-  }));
-  return c.json(workflowList);
+	const workflowList = Array.from(workflows.entries()).map(
+		([id, { workflow, exampleInput }]) => ({
+			id: workflow.id,
+			description: workflow.config.description,
+			steps: workflow.stepFlow.map((entry: any) => ({
+				id: entry.step.id,
+				description: entry.step.description,
+			})),
+			exampleInput,
+		}),
+	);
+	return c.json(workflowList);
 });
 
 // GET /api/workflows/:id - Get workflow details
 app.get("/api/workflows/:id", (c) => {
-  const workflowId = c.req.param("id");
-  const entry = workflows.get(workflowId);
+	const workflowId = c.req.param("id");
+	const entry = workflows.get(workflowId);
 
-  if (!entry) {
-    return c.json({ error: "Workflow not found" }, 404);
-  }
+	if (!entry) {
+		return c.json({ error: "Workflow not found" }, 404);
+	}
 
-  const { workflow, exampleInput } = entry;
-  return c.json({
-    id: workflow.id,
-    description: workflow.config.description,
-    steps: workflow.stepFlow.map((entry: any) => ({
-      id: entry.step.id,
-      description: entry.step.description,
-    })),
-    exampleInput,
-  });
+	const { workflow, exampleInput } = entry;
+	return c.json({
+		id: workflow.id,
+		description: workflow.config.description,
+		steps: workflow.stepFlow.map((entry: any) => ({
+			id: entry.step.id,
+			description: entry.step.description,
+		})),
+		exampleInput,
+	});
 });
 
 // GET /api/workflows/:id/runs - List runs for a workflow
 app.get("/api/workflows/:id/runs", async (c) => {
-  const workflowId = c.req.param("id");
-  const snapshots = await storage.listRuns(workflowId);
-  const runs = snapshots.map((snapshot) => ({
-    runId: snapshot.runId,
-    workflowId: snapshot.workflowId,
-    status: snapshot.status,
-    executionPath: snapshot.executionPath,
-    stepResults: snapshot.stepResults,
-    inputData: snapshot.inputData,
-    result: snapshot.result,
-    error: snapshot.error,
-    createdAt: snapshot.timestamp,
-    updatedAt: snapshot.timestamp,
-  }));
-  return c.json(runs);
+	const workflowId = c.req.param("id");
+	const snapshots = await storage.listRuns(workflowId);
+	const runs = snapshots.map((snapshot) => ({
+		runId: snapshot.runId,
+		workflowId: snapshot.workflowId,
+		status: snapshot.status,
+		executionPath: snapshot.executionPath,
+		stepResults: snapshot.stepResults,
+		inputData: snapshot.inputData,
+		result: snapshot.result,
+		error: snapshot.error,
+		createdAt: snapshot.timestamp,
+		updatedAt: snapshot.timestamp,
+	}));
+	return c.json(runs);
 });
 
 // POST /api/workflows/:id/runs - Create a new run
 app.post("/api/workflows/:id/runs", async (c) => {
-  const workflowId = c.req.param("id");
-  const entry = workflows.get(workflowId);
+	const workflowId = c.req.param("id");
+	const entry = workflows.get(workflowId);
 
-  if (!entry) {
-    return c.json({ error: "Workflow not found" }, 404);
-  }
+	if (!entry) {
+		return c.json({ error: "Workflow not found" }, 404);
+	}
 
-  const body = await c.req.json();
-  const { inputData } = body;
+	const body = await c.req.json();
+	const { inputData } = body;
 
-  // Create and start the run
-  const run = await entry.workflow.createRun();
+	// Create and start the run
+	const run = await entry.workflow.createRun();
 
-  // Start execution in the background
-  run.start({ inputData }).catch((error: Error) => {
-    console.error(`Run ${run.runId} failed:`, error);
-  });
+	// Start execution in the background
+	run.start({ inputData }).catch((error: Error) => {
+		console.error(`Run ${run.runId} failed:`, error);
+	});
 
-  // Return the initial run state
-  const snapshot = await storage.loadSnapshot(run.runId);
-  if (!snapshot) {
-    return c.json({ error: "Failed to create run" }, 500);
-  }
+	// Return the initial run state
+	const snapshot = await storage.loadSnapshot(run.runId);
+	if (!snapshot) {
+		return c.json({ error: "Failed to create run" }, 500);
+	}
 
-  return c.json({
-    runId: snapshot.runId,
-    workflowId: snapshot.workflowId,
-    status: snapshot.status,
-    executionPath: snapshot.executionPath,
-    stepResults: snapshot.stepResults,
-    inputData: snapshot.inputData,
-    result: snapshot.result,
-    error: snapshot.error,
-    createdAt: snapshot.timestamp,
-    updatedAt: snapshot.timestamp,
-  }, 201);
+	return c.json(
+		{
+			runId: snapshot.runId,
+			workflowId: snapshot.workflowId,
+			status: snapshot.status,
+			executionPath: snapshot.executionPath,
+			stepResults: snapshot.stepResults,
+			inputData: snapshot.inputData,
+			result: snapshot.result,
+			error: snapshot.error,
+			createdAt: snapshot.timestamp,
+			updatedAt: snapshot.timestamp,
+		},
+		201,
+	);
 });
 
 // GET /api/runs/:runId - Get run details
 app.get("/api/runs/:runId", async (c) => {
-  const runId = c.req.param("runId");
-  const snapshot = await storage.loadSnapshot(runId);
+	const runId = c.req.param("runId");
+	const snapshot = await storage.loadSnapshot(runId);
 
-  if (!snapshot) {
-    return c.json({ error: "Run not found" }, 404);
-  }
+	if (!snapshot) {
+		return c.json({ error: "Run not found" }, 404);
+	}
 
-  return c.json({
-    runId: snapshot.runId,
-    workflowId: snapshot.workflowId,
-    status: snapshot.status,
-    executionPath: snapshot.executionPath,
-    stepResults: snapshot.stepResults,
-    inputData: snapshot.inputData,
-    result: snapshot.result,
-    error: snapshot.error,
-    createdAt: snapshot.timestamp,
-    updatedAt: snapshot.timestamp,
-  });
+	return c.json({
+		runId: snapshot.runId,
+		workflowId: snapshot.workflowId,
+		status: snapshot.status,
+		executionPath: snapshot.executionPath,
+		stepResults: snapshot.stepResults,
+		inputData: snapshot.inputData,
+		result: snapshot.result,
+		error: snapshot.error,
+		createdAt: snapshot.timestamp,
+		updatedAt: snapshot.timestamp,
+	});
 });
 
 // ============================================================================
@@ -401,7 +428,7 @@ app.get("/api/runs/:runId", async (c) => {
 // ============================================================================
 
 app.get("/", (c) => {
-  const html = `<!DOCTYPE html>
+	const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -742,7 +769,7 @@ app.get("/", (c) => {
 </body>
 </html>
   `;
-  return c.html(html);
+	return c.html(html);
 });
 
 // ============================================================================
