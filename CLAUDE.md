@@ -1,329 +1,351 @@
-You are an advanced assistant specialized in generating Val Town code.
+# CLAUDE.md
 
-## Core Guidelines
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Ask clarifying questions when requirements are ambiguous
-- Provide complete, functional solutions rather than skeleton implementations
-- Test your logic against edge cases before presenting the final solution
-- Ensure all code follows Val Town's specific platform requirements
-- If a section of code that you're working on is getting too complex, consider
-  refactoring it into subcomponents
+## Project Overview
 
-## Code Standards
+**wrkflw** is a TypeScript-first workflow engine for Val Town, inspired by Mastra. It enables building strongly-typed, composable workflows that run on Val Town's serverless platform with SQLite-backed durable state.
 
-- Generate code in TypeScript or TSX
-- Add appropriate TypeScript types and interfaces for all data structures
-- Prefer official SDKs or libraries than writing API calls directly
-- Ask the user to supply API or library documentation if you are at all unsure
-  about it
-- **Never bake in secrets into the code** - always use environment variables
-- Include comments explaining complex logic (avoid commenting obvious
-  operations)
-- Follow modern ES6+ conventions and functional programming practices if
-  possible
+The engine features full TypeScript type inference across workflow definitions, runtime validation via Zod schemas, and supports all Val Town trigger types (HTTP, Cron, Email).
 
-## Types of triggers
+## Development Environment
 
-### 1. HTTP Trigger
+### Running Examples
 
-- Create web APIs and endpoints
-- Handle HTTP requests and responses
-- Example structure:
+```bash
+# Run a simple workflow example
+deno run --allow-all examples/simple-workflow.ts
 
-```ts
-export default async function (req: Request) {
-  return new Response("Hello World");
-}
+# Run the API server with canvas visualizer (local development)
+deno run --allow-all examples/api-server-example-local.ts
+
+# Then in another terminal, start the frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-Files that are HTTP triggers have http in their name like `foobar.http.tsx`
+### Testing Workflows
 
-### 2. Cron Triggers
+The project doesn't have a formal test suite. Test workflows by:
+1. Running example files directly with Deno
+2. Using the API server + frontend visualizer for interactive testing
+3. Checking SQLite state in the database after execution
 
-- Run on a schedule
-- Use cron expressions for timing
-- Example structure:
+### Code Quality
 
-```ts
-export default async function () {
-  // Scheduled task code
-}
+```bash
+# Format code with Biome
+deno run -A npm:@biomejs/biome format --write .
+
+# Lint code
+deno run -A npm:@biomejs/biome lint .
 ```
 
-Files that are Cron triggers have cron in their name like `foobar.cron.tsx`
+## Architecture
 
-### 3. Email Triggers
+### Core Components
 
-- Process incoming emails
-- Handle email-based workflows
-- Example structure:
+The workflow engine consists of these key parts:
 
-```ts
-export default async function (email: Email) {
-  // Process email
-}
+1. **Step System** (`backend/step.ts`): Individual workflow steps with typed inputs/outputs
+2. **Workflow Builder** (`backend/workflow.ts`): Fluent API for composing steps with type inference
+3. **Execution Engine** (`backend/engine.ts`): Sequential step execution with context management
+4. **Storage Layer** (`backend/storage.ts`): SQLite persistence for workflow state
+5. **Run Management** (`backend/run.ts`): Workflow execution instance lifecycle
+
+### Type Inference Pattern
+
+The workflow builder threads types through the `.then()` chain:
+- Each step's `outputSchema` must match the next step's `inputSchema`
+- TypeScript enforces this at compile time
+- The workflow's final output type is inferred from the last step
+
+Example flow:
+```typescript
+// Step 1: string -> number
+const step1 = createStep({
+  inputSchema: z.object({ a: z.string() }),
+  outputSchema: z.object({ b: z.number() }),
+  execute: async ({ inputData }) => ({ b: 42 })
+});
+
+// Step 2: number -> boolean (MUST accept step1's output type)
+const step2 = createStep({
+  inputSchema: z.object({ b: z.number() }),
+  outputSchema: z.object({ c: z.boolean() }),
+  execute: async ({ inputData }) => ({ c: true })
+});
+
+// Workflow builder enforces type compatibility
+const workflow = createWorkflow({
+  inputSchema: z.object({ a: z.string() }),
+  outputSchema: z.object({ c: z.boolean() })
+})
+  .then(step1)  // OK: accepts { a: string }
+  .then(step2)  // OK: accepts { b: number } from step1
+  .commit();    // Final type: { c: boolean }
 ```
 
-Files that are Email triggers have email in their name like `foobar.email.tsx`
+### State Management
 
-## Val Town Standard Libraries
+Workflows persist state to SQLite after each step execution:
+- Each run gets a unique `runId` (UUID)
+- Snapshots include: status, execution path, step results, state, errors
+- Storage uses UPSERT pattern to handle interruptions
+- Migrations in `backend/migrations.ts` handle schema evolution
 
-Val Town provides several hosted services and utility functions.
+### Execution Context
 
-### Blob Storage
+Steps receive a rich execution context:
+- `inputData`: Validated input for this step
+- `getStepResult(step)`: Access outputs from previous steps
+- `getInitData()`: Get workflow's initial input
+- `state` / `setState`: Workflow-level state (optional)
+- `runId`, `workflowId`: Execution identifiers
 
-```ts
-import { blob } from "https://esm.town/v/std/blob";
-await blob.setJSON("myKey", { hello: "world" });
-let blobDemo = await blob.getJSON("myKey");
-let appKeys = await blob.list("app_");
-await blob.delete("myKey");
+## Project Structure
+
+```
+wrkflw/
+├── backend/              # Core workflow engine
+│   ├── index.ts         # Main exports
+│   ├── types.ts         # TypeScript type definitions
+│   ├── step.ts          # Step creation and execution
+│   ├── workflow.ts      # Workflow builder with type inference
+│   ├── engine.ts        # Sequential execution engine
+│   ├── storage.ts       # SQLite persistence layer
+│   ├── run.ts           # Run lifecycle management
+│   ├── migrations.ts    # Database schema migrations
+│   ├── prebuilt-steps.ts # Reusable steps (httpGet, template, etc.)
+│   ├── visualize.ts     # Mermaid diagram generation
+│   └── api-server.ts    # REST API for canvas visualizer
+├── frontend/            # React canvas visualizer
+│   ├── src/
+│   │   ├── App.tsx                      # Main app container
+│   │   ├── components/
+│   │   │   ├── WorkflowVisualizer.tsx   # React Flow canvas
+│   │   │   └── StepNode.tsx             # Custom step nodes
+│   │   └── types.ts                     # Frontend types
+│   └── package.json
+├── examples/            # Usage examples
+│   ├── simple-workflow.ts
+│   ├── http-trigger.ts
+│   ├── cron-trigger.ts
+│   ├── prebuilt-steps-simple.ts
+│   ├── workflow-visualization.ts
+│   └── api-server-example-local.ts
+├── deno.json            # Deno configuration
+├── biome.json           # Biome formatter/linter config
+└── PLAN.md              # Original implementation plan
 ```
 
-### SQLite
+## Common Development Tasks
 
-```ts
-import { sqlite } from "https://esm.town/v/stevekrouse/sqlite";
-const TABLE_NAME = "todo_app_users_2";
-// Create table - do this before usage and change table name when modifying schema
-await sqlite.execute(`CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL
-)`);
-// Query data
-const result = await sqlite.execute(
-  `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
-  [1],
-);
-```
+### Creating New Steps
 
-Note: When changing a SQLite table's schema, change the table's name (e.g., add
-_2 or _3) to create a fresh table.
+Steps should have clear, focused responsibilities:
 
-### OpenAI
+```typescript
+import { createStep } from "./backend/index.ts";
+import { z } from "npm:zod@^3.23";
 
-```ts
-import { OpenAI } from "https://esm.town/v/std/openai";
-const openai = new OpenAI();
-const completion = await openai.chat.completions.create({
-  messages: [
-    { role: "user", content: "Say hello in a creative way" },
-  ],
-  model: "gpt-4o-mini",
-  max_tokens: 30,
+const myStep = createStep({
+  id: 'my-step',                    // Unique identifier
+  description: 'What this step does', // Optional description
+  inputSchema: z.object({ /* ... */ }),   // Input validation
+  outputSchema: z.object({ /* ... */ }),  // Output validation
+  execute: async ({ inputData, getStepResult }) => {
+    // Step logic here
+    return { /* matches outputSchema */ };
+  }
 });
 ```
 
-### Email
+### Adding Prebuilt Steps
 
-```ts
-import { email } from "https://esm.town/v/std/email";
-// By default emails the owner of the val
-await email({
-  subject: "Hi",
-  text: "Hi",
-  html: "<h1>Hi</h1>",
+When adding reusable steps to `backend/prebuilt-steps.ts`:
+1. Follow the existing pattern (httpGet, template, etc.)
+2. Use generic Zod schemas for flexibility
+3. Add clear JSDoc comments with examples
+4. Export from `backend/index.ts`
+
+### Database Migrations
+
+When modifying workflow state schema:
+1. Add migration to `backend/migrations.ts`
+2. Update `WorkflowStorage.init()` to create new columns/tables
+3. Test migration with existing data
+4. Consider backward compatibility
+
+### Adding API Endpoints
+
+The API server (`backend/api-server.ts`) follows REST conventions:
+- `GET /api/workflows` - List workflows
+- `GET /api/workflows/:id` - Get workflow details
+- `POST /api/workflows/:id/runs` - Start new run
+- `GET /api/runs/:runId` - Get run status
+
+When adding endpoints:
+1. Add route matching in `handleRequest()`
+2. Include CORS headers
+3. Serialize data appropriately
+4. Handle errors gracefully
+
+## Val Town Specifics
+
+### Import Patterns
+
+The codebase uses dynamic imports for Val Town compatibility:
+```typescript
+// Storage imports sqlite dynamically
+const { sqlite } = await import("https://esm.town/v/std/sqlite");
+```
+
+This allows the code to work both:
+- In Val Town (where sqlite is available)
+- Locally with Deno (where it may not be)
+
+### Trigger Types
+
+Workflows are designed to be called from any Val Town trigger:
+
+**HTTP Trigger** (`*.http.ts`):
+```typescript
+export default async function(req: Request) {
+  const run = await workflow.createRun();
+  const result = await run.start({ inputData: { /* ... */ } });
+  return Response.json(result);
+}
+```
+
+**Cron Trigger** (`*.cron.ts`):
+```typescript
+export default async function(interval: Interval) {
+  const run = await workflow.createRun();
+  await run.start({ inputData: { /* ... */ } });
+}
+```
+
+**Email Trigger** (`*.email.ts`):
+```typescript
+export default async function(email: Email) {
+  const run = await workflow.createRun();
+  await run.start({
+    inputData: {
+      from: email.from,
+      subject: email.subject
+    }
+  });
+}
+```
+
+### Storage Constraints
+
+- SQLite is the only available database in Val Town
+- No blob storage in Phase 1 (use JSON serialization)
+- Tables use `wrkflw_` prefix to avoid naming conflicts
+- Indexes on `workflow_id` and `status` for performance
+
+## Visualization
+
+### Mermaid Diagrams
+
+Generate workflow structure diagrams:
+```typescript
+const diagram = workflow.visualize("mermaid");
+console.log(diagram); // Paste into GitHub, mermaid.live, etc.
+```
+
+Generate execution state diagrams:
+```typescript
+const run = await workflow.createRun();
+await run.start({ inputData: { /* ... */ } });
+const executionDiagram = await run.visualize("mermaid");
+```
+
+### Canvas Visualizer
+
+The frontend provides an interactive React Flow canvas:
+1. Start API server: `deno run --allow-all examples/api-server-example-local.ts`
+2. Start frontend: `cd frontend && npm run dev`
+3. Open http://localhost:3000
+4. Select workflows, create runs, watch execution in real-time
+
+## Important Patterns
+
+### Error Handling
+
+Errors bubble up from steps to the engine:
+- Step execution wrapped in try/catch
+- Errors stored in `StepResult` with `status: 'failed'`
+- Workflow snapshot saved with error details
+- Error propagates to caller (no automatic retries in Phase 1)
+
+### Initialization
+
+Workflows auto-initialize on first run:
+```typescript
+const run = await workflow.createRun(); // Calls init() internally
+```
+
+This creates database tables if they don't exist. For explicit control:
+```typescript
+await workflow.init();
+```
+
+### Accessing Step Results
+
+Within a step's execute function:
+```typescript
+execute: async ({ getStepResult, getInitData }) => {
+  // Get output from a specific previous step
+  const userData = getStepResult(fetchUser);
+
+  // Get the workflow's initial input
+  const initialInput = getInitData();
+
+  return { /* ... */ };
+}
+```
+
+### Workflow State
+
+Define workflow-level state that persists across steps:
+```typescript
+const workflow = createWorkflow({
+  id: 'stateful-workflow',
+  inputSchema: z.object({ /* ... */ }),
+  outputSchema: z.object({ /* ... */ }),
+  stateSchema: z.object({ counter: z.number() }) // Workflow state
+});
+
+const step = createStep({
+  execute: async ({ state, setState }) => {
+    const count = (state?.counter || 0) + 1;
+    setState({ counter: count });
+    return { /* ... */ };
+  }
 });
 ```
 
-## Val Town Utility Functions
+## Future Phases
 
-Val Town provides several utility functions to help with common project tasks.
+The roadmap is defined in PLAN.md:
+- **Phase 2**: Parallel execution, branching, data transformations
+- **Phase 3**: Durability (sleep, suspend/resume)
+- **Phase 4**: Advanced features (foreach, nested workflows, retries)
+- **Phase 5**: Observability (streaming, debugging UI, time-travel)
 
-### Importing Utilities
+When implementing new features, follow the type-safe pattern established in Phase 1.
 
-Always import utilities with version pins to avoid breaking changes:
+## Key Files to Understand
 
-```ts
-import {
-  parseProject,
-  readFile,
-  serveFile,
-} from "https://esm.town/v/std/utils@85-main/index.ts";
-```
+To quickly understand the codebase architecture:
 
-### Available Utilities
+1. **types.ts** - Core type definitions and interfaces
+2. **workflow.ts** - Type inference through builder pattern
+3. **engine.ts** - Sequential execution logic
+4. **examples/simple-workflow.ts** - Complete end-to-end example
 
-#### **serveFile** - Serve project files with proper content types
-
-For example, in Hono:
-
-```ts
-// serve all files in frontend/ and shared/
-app.get("/frontend/*", (c) => serveFile(c.req.path, import.meta.url));
-app.get("/shared/*", (c) => serveFile(c.req.path, import.meta.url));
-```
-
-#### **readFile** - Read files from within the project:
-
-```ts
-// Read a file from the project
-const fileContent = await readFile("/frontend/index.html", import.meta.url);
-```
-
-#### **listFiles** - List all files in the project
-
-```ts
-const files = await listFiles(import.meta.url);
-```
-
-#### **parseProject** - Extract information about the current project from import.meta.url
-
-This is useful for including info for linking back to a val, ie in "view source"
-urls:
-
-```ts
-const projectVal = parseProject(import.meta.url);
-console.log(projectVal.username); // Owner of the project
-console.log(projectVal.name); // Project name
-console.log(projectVal.version); // Version number
-console.log(projectVal.branch); // Branch name
-console.log(projectVal.links.self.project); // URL to the project page
-```
-
-However, it's _extremely importing_ to note that `parseProject` and other
-Standard Library utilities ONLY RUN ON THE SERVER. If you need access to this
-data on the client, run it in the server and pass it to the client by splicing
-it into the HTML page or by making an API request for it.
-
-## Val Town Platform Specifics
-
-- **Redirects:** Use
-  `return new Response(null, { status: 302, headers: { Location: "/place/to/redirect" }})`
-  instead of `Response.redirect` which is broken
-- **Images:** Avoid external images or base64 images. Use emojis, unicode
-  symbols, or icon fonts/libraries instead
-- **AI Image:** To inline generate an AI image use:
-  `<img src="https://maxm-imggenurl.web.val.run/the-description-of-your-image" />`
-- **Storage:** DO NOT use the Deno KV module for storage
-- **Browser APIs:** DO NOT use the `alert()`, `prompt()`, or `confirm()` methods
-- **Weather Data:** Use open-meteo for weather data (doesn't require API keys)
-  unless otherwise specified
-- **View Source:** Add a view source link by importing & using
-  `import.meta.url.replace("ems.sh", "val.town)"` (or passing this data to the
-  client) and include `target="_top"` attribute
-- **Error Debugging:** Add
-  `<script src="https://esm.town/v/std/catch"></script>` to HTML to capture
-  client-side errors
-- **Error Handling:** Only use try...catch when there's a clear local
-  resolution; Avoid catches that merely log or return 500s. Let errors bubble up
-  with full context
-- **Environment Variables:** Use `Deno.env.get('keyname')` when you need to, but
-  generally prefer APIs that don't require keys
-- **Imports:** Use `https://esm.sh` for npm and Deno dependencies to ensure
-  compatibility on server and browser
-- **Storage Strategy:** Only use backend storage if explicitly required; prefer
-  simple static client-side sites
-- **React Configuration:** When using React libraries, pin versions with
-  `?deps=react@18.2.0,react-dom@18.2.0` and start the file with
-  `/** @jsxImportSource https://esm.sh/react@18.2.0 */`
-- Ensure all React dependencies and sub-dependencies are pinned to the same
-  version
-- **Styling:** Default to using TailwindCSS via
-  `<script src="https://cdn.twind.style" crossorigin></script>` unless otherwise
-  specified
-
-## Project Structure and Design Patterns
-
-### Recommended Directory Structure
-
-```
-├── backend/
-│   ├── database/
-│   │   ├── migrations.ts    # Schema definitions
-│   │   ├── queries.ts       # DB query functions
-│   │   └── README.md
-│   └── routes/              # Route modules
-│       ├── [route].ts
-│       └── static.ts        # Static file serving
-│   ├── index.ts             # Main entry point
-│   └── README.md
-├── frontend/
-│   ├── components/
-│   │   ├── App.tsx
-│   │   └── [Component].tsx
-│   ├── favicon.svg
-│   ├── index.html           # Main HTML template
-│   ├── index.tsx            # Frontend JS entry point
-│   ├── README.md
-│   └── style.css
-├── README.md
-└── shared/
-    ├── README.md
-    └── utils.ts             # Shared types and functions
-```
-
-### Backend (Hono) Best Practices
-
-- Hono is the recommended API framework
-- Main entry point should be `backend/index.ts`
-- **Static asset serving:** Use the utility functions to read and serve project
-  files:
-  ```ts
-  import {
-    readFile,
-    serveFile,
-  } from "https://esm.town/v/std/utils@85-main/index.ts";
-
-  // serve all files in frontend/ and shared/
-  app.get("/frontend/*", (c) => serveFile(c.req.path, import.meta.url));
-  app.get("/shared/*", (c) => serveFile(c.req.path, import.meta.url));
-
-  // For index.html, often you'll want to bootstrap with initial data
-  app.get("/", async (c) => {
-    let html = await readFile("/frontend/index.html", import.meta.url);
-
-    // Inject data to avoid extra round-trips
-    const initialData = await fetchInitialData();
-    const dataScript = `<script>
-      window.__INITIAL_DATA__ = ${JSON.stringify(initialData)};
-    </script>`;
-
-    html = html.replace("</head>", `${dataScript}</head>`);
-    return c.html(html);
-  });
-  ```
-- Create RESTful API routes for CRUD operations
-- Always include this snippet at the top-level Hono app to re-throwing errors to
-  see full stack traces:
-  ```ts
-  // Unwrap Hono errors to see original error details
-  app.onError((err, c) => {
-    throw err;
-  });
-  ```
-
-### Database Patterns
-
-- Run migrations on startup or comment out for performance
-- Change table names when modifying schemas rather than altering
-- Export clear query functions with proper TypeScript typing
-
-## Common Gotchas and Solutions
-
-1. **Environment Limitations:**
-   - Val Town runs on Deno in a serverless context, not Node.js
-   - Code in `shared/` must work in both frontend and backend environments
-   - Cannot use `Deno` keyword in shared code
-   - Use `https://esm.sh` for imports that work in both environments
-
-2. **SQLite Peculiarities:**
-   - Limited support for ALTER TABLE operations
-   - Create new tables with updated schemas and copy data when needed
-   - Always run table creation before querying
-
-3. **React Configuration:**
-   - All React dependencies must be pinned to 18.2.0
-   - Always include `@jsxImportSource https://esm.sh/react@18.2.0` at the top of
-     React files
-   - Rendering issues often come from mismatched React versions
-
-4. **File Handling:**
-   - Val Town only supports text files, not binary
-   - Use the provided utilities to read files across branches and forks
-   - For files in the project, use `readFile` helpers
-
-5. **API Design:**
-   - `fetch` handler is the entry point for HTTP vals
-   - Run the Hono app with
-     `export default app.fetch // This is the entry point for HTTP vals`
+Reading these four files provides 80% of the architectural understanding needed to work effectively in this codebase.
