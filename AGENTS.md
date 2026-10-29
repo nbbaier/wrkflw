@@ -1,42 +1,40 @@
-# wrkflw - Agent Development Guide
+# wrkflw
+
+TypeScript workflow engine for Val Town: typed, Zod-validated steps chained with `.then()`, run
+state persisted to Val Town SQLite. The engine lives in `backend/`; `frontend/` is a Vite canvas
+that visualizes runs through `backend/api-server.ts`.
 
 ## Commands
 
-**Backend (Deno):**
-- `deno lint` - Run linter on all backend files
-- `deno fmt` - Format backend code  
-- `deno check backend/index.ts` - Type check backend entry point
-- `deno run --allow-all test_migration.ts` - Test migration logic
+- `deno lint`, `deno fmt`, `deno check --allow-import backend/index.ts`.
+- `npx @biomejs/biome check` (add `--write` to fix).
+- `cd frontend && npm run dev` / `build` / `preview`.
+- No test suite: exercise changes with `examples/`. `test_migration.ts` only prints migration SQL.
 
-**Frontend (Node/Vite):**
-- `cd frontend && npm run dev` - Start development server
-- `cd frontend && npm run build` - Build for production
-- `cd frontend && npm run preview` - Preview production build
+## Schema changes
 
-**Biome (Code Quality):**
-- `npx @biomejs/biome check` - Run all checks (lint + format)
-- `npx @biomejs/biome check --write` - Auto-fix issues
-- `npx @biomejs/biome format --write` - Format only
+Val Town's SQLite has limited `ALTER TABLE` support. To change the `wrkflw_workflow_runs` schema,
+create a new `wrkflw_`-prefixed table instead of altering the old one. Add a copy-forward migration
+to `backend/migrations.ts` in the style of `migrateWorkflowRunsTable()`, register it in
+`runMigrations()` (which `WorkflowStorage.init()` calls on startup), and keep the old table.
 
-## Code Standards
+## Val Town constraints
 
-**TypeScript:** Use strict types, prefer interfaces over types, export all public APIs from `backend/index.ts`
+- Trigger files: `*.http.ts` default-exports `(req: Request)`, `*.cron.ts` `(interval: Interval)`,
+  `*.email.ts` `(email: Email)`.
+- Use the Val Town std libraries (`sqlite`, `blob`, `openai`, `email`) in place of Deno KV.
+- Load Tailwind via CDN and keep images in the val.
 
-**Imports:** Use `https://esm.sh` for npm packages, version pin all dependencies, organize imports with Biome
+## Gotchas
 
-**Naming:** PascalCase for types/interfaces, camelCase for functions/variables, kebab-case for file names
+- Storage has no local fallback. `WorkflowStorage` always imports Val Town's std `sqlite`, so local
+  runs, `examples/` included, read and write the real Val Town database and need a token.
 
-**Error Handling:** Let errors bubble up with full context, use try-catch only for local resolution
+## Before editing `backend/`
 
-**Val Town Specifics:**
-- HTTP triggers: `*.http.ts`, export default async function(req: Request)
-- Cron triggers: `*.cron.ts`, export default async function()
-- Email triggers: `*.email.ts`, export default async function(email: Email)
-- Use Val Town std libraries: `blob`, `sqlite`, `openai`, `email`
-- Never use Deno KV, avoid external images, use Tailwind via CDN
+Read `CODING_STANDARDS.md`.
 
-**React:** Pin to 18.2.0, include `@jsxImportSource https://esm.sh/react@18.2.0` at top of files
+## Done means
 
-**Database:** Use `wrkflw_` prefix for all table names, create new tables when modifying schemas
-
-**Testing:** No test framework configured - test manually with example files in `/examples` directory
+`deno lint` and `deno check --allow-import backend/index.ts` report no errors beyond those already
+on `main`. Both fail there today: lint across `backend/` and `examples/`, check in `api-server.ts`.
